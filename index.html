@@ -452,17 +452,18 @@
                                     <th className="p-3">شهر مشتری</th>
                                     <th className="p-3">تعداد درخواستی</th>
                                     <th className="p-3">فوریت</th>
+                                    <th className="p-3">شناسه محصول</th>
                                     <th className="p-3">شناسه تقاضا</th>
                                     <th className="p-3">عملیات</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {isLoading ? (
-                                    <tr><td colSpan="8" className="text-center p-8">در حال بارگذاری...</td></tr>
+                                    <tr><td colSpan="9" className="text-center p-8">در حال بارگذاری...</td></tr>
                                 ) : error ? (
-                                    <tr><td colSpan="8" className="text-center p-8 text-red-500">{error}</td></tr>
+                                    <tr><td colSpan="9" className="text-center p-8 text-red-500">{error}</td></tr>
                                 ) : filteredDemandItems.length === 0 ? (
-                                    <tr><td colSpan="8" className="text-center p-8 text-gray-500">موردی با این فیلترها یافت نشد.</td></tr>
+                                    <tr><td colSpan="9" className="text-center p-8 text-gray-500">موردی با این فیلترها یافت نشد.</td></tr>
                                 ) : (
                                     filteredDemandItems.map(item => (
                                         <React.Fragment key={item.id}>
@@ -475,9 +476,9 @@
                                                 <td className="p-3 text-center">
                                                     {item.demand.is_emergency && <span className="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">فوری</span>}
                                                 </td>
+                                                <td className="p-3 font-mono text-xs">{item.productid}</td>
                                                 <td className="p-3 font-mono text-xs">{item.demandid}</td>
                                                 <td className="p-3">
-                                                    {/* UPDATED: Conditional button styling */}
                                                     <button 
                                                         onClick={() => handleOpenModal(item)} 
                                                         className={`font-bold py-1 px-3 rounded-lg text-sm text-white ${
@@ -492,7 +493,7 @@
                                             </tr>
                                             {(item.demand_admin_note || item.supply_admin_note) && (
                                                 <tr className="bg-gray-50 dark:bg-gray-700/50">
-                                                    <td colSpan="8" className="px-4 py-2 text-xs text-gray-600 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
+                                                    <td colSpan="9" className="px-4 py-2 text-xs text-gray-600 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
                                                         {item.demand_admin_note && <div><strong>یادداشت مدیر تقاضا:</strong> {item.demand_admin_note}</div>}
                                                         {item.supply_admin_note && <div className="mt-1"><strong>یادداشت مدیر تامین:</strong> {item.supply_admin_note}</div>}
                                                     </td>
