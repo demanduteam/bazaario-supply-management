@@ -566,12 +566,12 @@ return (
 <tr className="border-b border-gray-200 dark:border-gray-700">
 <th className="p-3">تاریخ</th>
 <th className="p-3">محصول</th>
-<th className="p-3">کد تلگرام</th>
 <th className="p-3">تعداد درخواستی</th>
 <th className="p-3">مشتری</th>
 <th className="p-3">شهر مشتری</th>
 <th className="p-3">فوریت</th>
 <th className="p-3">کد بازاریو</th>
+<th className="p-3">کد تلگرام</th>
 <th className="p-3">شناسه تقاضا</th>
 <th className="p-3">عملیات</th>
 </tr>
@@ -589,7 +589,6 @@ filteredDemandItems.map(item => (
 <tr className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
 <td className="p-3 font-mono text-sm whitespace-nowrap">{toJalaaliDate(item.demand.createdat)}</td>
 <td className="p-3 font-semibold">{getProductDisplayTitle(item.product)}</td>
-<td className="p-3 font-mono text-xs">{getTelegramCode(item.product)}</td>
 <td className="p-3 font-mono text-center">{item.quantity}</td>
 <td className="p-3">{item.demand.profiles.fullname}</td>
 <td className="p-3">{item.demand.location?.city?.title || '-'}</td>
@@ -597,6 +596,7 @@ filteredDemandItems.map(item => (
 {item.demand.is_emergency && <span className="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">فوری</span>}
 </td>
 <td className="p-3 font-mono text-xs">{item.productid}</td>
+<td className="p-3 font-mono text-xs">{getTelegramCode(item.product)}</td>
 <td className="p-3 font-mono text-xs">{item.demandid}</td>
 <td className="p-3">
 <button
