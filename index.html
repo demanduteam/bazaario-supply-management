@@ -91,7 +91,11 @@ const api = {
 async fetchDemandItemsForSupply() {
 const { data, error } = await supabaseClient
 .from('demand_item')
-.select(`*, demand(*, profiles(fullname), location(*, city(title))), product(title, brand(title))`)
+.select(`
+    *, 
+    demand(*, profiles(fullname), location(*, city(title))), 
+    product(id, title, brand(title), productproperty(*, propertykey(*)))
+`)
 .in('demandstatusid', [12, 14]) // 12: 'در انتظار تامین', 14: 'تامین تایید شد'
 .order('createdat', { ascending: false });
 if (error) throw error;
@@ -117,7 +121,7 @@ if (error) throw error;
 return data || [];
 },
 
-async saveAssignments(demandItem, assignments, previousAssignments, suppliers, { totalQuantity, averagePrice }) {
+async saveAssignments(demandItem, assignments, previousAssignments, suppliers, { totalQuantity, averagePrice }, notes) { // Added notes
 // Step 1: Delete existing assignments for this item
 await supabaseClient
 .from('supplier_demand_assignment')
@@ -165,6 +169,8 @@ await supabaseClient.from('demand_item').update({
 approved_supply_quantity: totalQuantity,
 approved_supply_price: averagePrice,
 demandstatusid: 14, // 'تامین تایید شد'
+demand_admin_note: notes.demand_admin_note, // Added
+supply_admin_note: notes.supply_admin_note   // Added
 }).eq('id', demandItem.id);
 } else {
 if (previousAssignments.length > 0) {
@@ -179,6 +185,8 @@ await supabaseClient.from('demand_item').update({
 approved_supply_quantity: null,
 approved_supply_price: null,
 demandstatusid: 12, // 'در انتظار تامین'
+demand_admin_note: notes.demand_admin_note, // Added
+supply_admin_note: notes.supply_admin_note   // Added
 }).eq('id', demandItem.id);
 }
 }
@@ -206,6 +214,28 @@ return '-';
 }
 };
 
+const getTelegramCode = (product) => {
+    if (!product || !product.productproperty) return '';
+    const telegramCodeProp = product.productproperty.find(
+        prop => prop.propertykey?.title?.toLowerCase().includes('تلگرام')
+    );
+    return telegramCodeProp ? telegramCodeProp.value : '';
+};
+
+const getProductDisplayTitle = (product) => {
+    if (!product) return 'محصول حذف شده';
+    const brand = product.brand?.title || '';
+    const title = product.title || '';
+    const telegramCode = getTelegramCode(product);
+    return `${telegramCode ? `[${telegramCode}] ` : ''}${brand ? brand + ' ' : ''}${title}`;
+};
+
+const formatCountdown = (seconds) => {
+    const mins = String(Math.floor(seconds / 60)).padStart(2, '0');
+    const secs = String(seconds % 60).padStart(2, '0');
+    return `${mins}:${secs}`;
+};
+
 const Modal = ({ isOpen, onClose, title, children }) => {
 if (!isOpen) return null;
 return (
@@ -230,6 +260,8 @@ const [isLoading, setIsLoading] = React.useState(true);
 const [error, setError] = React.useState('');
 const [assignments, setAssignments] = React.useState({});
 const [previousAssignments, setPreviousAssignments] = React.useState([]);
+const [demandAdminNote, setDemandAdminNote] = React.useState('');
+const [supplyAdminNote, setSupplyAdminNote] = React.useState('');
 
 React.useEffect(() => {
 if (isOpen && demandItem) {
@@ -253,6 +285,9 @@ updatedPrice: assign.assigned_price
 };
 });
 setAssignments(initialAssignments);
+
+setDemandAdminNote(demandItem.demand_admin_note || '');
+setSupplyAdminNote(demandItem.supply_admin_note || '');
 
 } catch (err) {
 console.error("Error fetching data for modal:", err);
@@ -295,7 +330,8 @@ const handleSave = async () => {
 setIsLoading(true);
 setError('');
 try {
-await api.saveAssignments(demandItem, assignments, previousAssignments, suppliers, { totalQuantity, averagePrice });
+const notes = { demand_admin_note: demandAdminNote, supply_admin_note: supplyAdminNote };
+await api.saveAssignments(demandItem, assignments, previousAssignments, suppliers, { totalQuantity, averagePrice }, notes);
 onSave();
 } catch (err) {
 console.error("Error saving assignment:", err);
@@ -309,7 +345,8 @@ const handleClear = async () => {
 setIsLoading(true);
 setError('');
 try {
-await api.saveAssignments(demandItem, {}, previousAssignments, suppliers, { totalQuantity: 0, averagePrice: 0 });
+const notes = { demand_admin_note: demandAdminNote, supply_admin_note: supplyAdminNote };
+await api.saveAssignments(demandItem, {}, previousAssignments, suppliers, { totalQuantity: 0, averagePrice: 0 }, notes);
 onSave();
 } catch (err) {
 console.error("Error clearing assignment:", err);
@@ -322,7 +359,7 @@ setIsLoading(false);
 const isSaveDisabled = isLoading || (totalQuantity === 0 && previousAssignments.length === 0);
 
 return (
-<Modal isOpen={isOpen} onClose={onClose} title={`تامین کالا: ${demandItem?.product?.title}`}>
+<Modal isOpen={isOpen} onClose={onClose} title={`تامین کالا: ${getProductDisplayTitle(demandItem?.product)}`}>
 {isLoading && <p>در حال بارگذاری تامین‌کنندگان...</p>}
 {error && <p className="text-red-500">{error}</p>}
 {!isLoading && (
@@ -343,7 +380,30 @@ return (
 </div>
 )) : <p className="text-center text-gray-500 py-4">هیچ تامین‌کننده فعالی برای این کالا یافت نشد.</p>}
 </div>
-<div className="p-4 bg-indigo-100 dark:bg-indigo-900/50 rounded-lg space-y-3 border-t-4 border-indigo-500">
+
+{/* Admin Notes Textareas */}
+<div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+    <div>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">یادداشت مدیر تقاضا</label>
+        <textarea
+            value={demandAdminNote}
+            onChange={(e) => setDemandAdminNote(e.target.value)}
+            className="w-full bg-gray-100 dark:bg-gray-700 p-2 rounded-lg"
+            rows="3"
+        ></textarea>
+    </div>
+    <div>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">یادداشت مدیر تامین</label>
+        <textarea
+            value={supplyAdminNote}
+            onChange={(e) => setSupplyAdminNote(e.target.value)}
+            className="w-full bg-gray-100 dark:bg-gray-700 p-2 rounded-lg"
+            rows="3"
+        ></textarea>
+    </div>
+</div>
+
+<div className="p-4 bg-indigo-100 dark:bg-indigo-900/50 rounded-lg space-y-3 border-t-4 border-indigo-500 mt-4">
 <h4 className="font-bold text-lg">خلاصه تخصیص</h4>
 <div className="flex justify-between items-center"><span className="text-gray-700 dark:text-gray-300">تعداد کل تامین‌شده:</span><span className="font-bold text-xl">{totalQuantity.toLocaleString('fa-IR')}</span></div>
 <div className="flex justify-between items-center"><span className="text-gray-700 dark:text-gray-300">میانگین قیمت وزنی:</span><span className="font-bold text-xl">{formatCurrency(averagePrice)}</span></div>
@@ -352,9 +412,9 @@ return (
 <div className="flex justify-between items-center pt-4 border-t border-gray-200 dark:border-gray-700">
 <div>
 {previousAssignments.length > 0 && (
-<button 
-onClick={handleClear} 
-disabled={isLoading} 
+<button
+onClick={handleClear}
+disabled={isLoading}
 className="bg-red-600 hover:bg-red-700 text-white py-2 px-5 rounded-lg font-semibold disabled:bg-red-400 disabled:cursor-not-allowed"
 >
 {isLoading ? 'در حال پردازش...' : 'حذف تخصیص'}
@@ -385,9 +445,10 @@ const [searchTerm, setSearchTerm] = React.useState('');
 const [showEmergencyOnly, setShowEmergencyOnly] = React.useState(false);
 // NEW: State for filtering non-assigned items (demandstatusid = 12)
 const [showNotAssignedOnly, setShowNotAssignedOnly] = React.useState(false);
+const [countdown, setCountdown] = React.useState(300); // 5 minutes in seconds
 
-const fetchData = async () => {
-setIsLoading(true);
+const fetchData = async (isAutoRefresh = false) => {
+if (!isAutoRefresh) setIsLoading(true);
 setError('');
 try {
 const data = await api.fetchDemandItemsForSupply();
@@ -396,13 +457,29 @@ setDemandItems(data);
 console.error("Error fetching demand items:", err);
 setError("خطا در بارگذاری آیتم‌های نیازمند تامین. از معتبر بودن کلید API و اتصال اینترنت خود اطمینان حاصل کنید.");
 } finally {
-setIsLoading(false);
+if (!isAutoRefresh) setIsLoading(false);
 }
 };
 
 React.useEffect(() => {
 fetchData();
 }, []);
+
+// Effect for countdown timer and auto-refresh
+React.useEffect(() => {
+    const timer = setInterval(() => {
+        setCountdown(prevCountdown => {
+            if (prevCountdown <= 1) {
+                console.log("Auto-refreshing data...");
+                fetchData(true); // Fetch data
+                return 300; // Reset countdown to 5 minutes
+            }
+            return prevCountdown - 1; // Decrement
+        });
+    }, 1000); // Every second
+
+    return () => clearInterval(timer);
+}, []); // Empty dependency array ensures this effect runs only once
 
 const handleOpenModal = (item) => { setSelectedItem(item); setIsModalOpen(true); };
 const handleCloseModal = () => { setSelectedItem(null); setIsModalOpen(false); };
@@ -416,11 +493,13 @@ return demandItems
 .filter(item => {
 if (!searchTerm) return true;
 const term = searchTerm.toLowerCase();
+const telegramCode = getTelegramCode(item.product); // Get telegram code
 return [
 item.demand.profiles.fullname,
 item.demand.location?.city?.title,
 item.product.title,
 item.product.brand?.title,
+telegramCode, // Add telegram code to search
 item.demand_admin_note,
 item.supply_admin_note,
 toJalaaliDate(item.demand.createdat),
@@ -432,7 +511,15 @@ String(item.demandid)
 
 return (
 <div className="p-4 sm:p-6 lg:p-8 text-gray-900 dark:text-gray-100">
-<h1 className="text-2xl md:text-3xl font-bold mb-6">مدیریت تامین</h1>
+<header className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+    <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">مدیریت تامین</h1>
+    <div className="flex items-center gap-4">
+        <span className="font-mono text-lg text-gray-700 dark:text-gray-300" dir="ltr" title="زمان تا به‌روزرسانی بعدی">
+            {formatCountdown(countdown)}
+        </span>
+        {/* Placeholder for theme toggle if needed in future */}
+    </div>
+</header>
 <p className="mb-6 text-gray-600 dark:text-gray-400">در این بخش، برای آیتم‌های تقاضا که در وضعیت "در انتظار تامین" هستند، تامین‌کننده تخصیص دهید.</p>
 
 <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow mb-6">
@@ -479,6 +566,7 @@ return (
 <tr className="border-b border-gray-200 dark:border-gray-700">
 <th className="p-3">تاریخ</th>
 <th className="p-3">محصول</th>
+<th className="p-3">کد تلگرام</th>
 <th className="p-3">تعداد درخواستی</th>
 <th className="p-3">مشتری</th>
 <th className="p-3">شهر مشتری</th>
@@ -490,17 +578,18 @@ return (
 </thead>
 <tbody>
 {isLoading ? (
-<tr><td colSpan="9" className="text-center p-8">در حال بارگذاری...</td></tr>
+<tr><td colSpan="10" className="text-center p-8">در حال بارگذاری...</td></tr>
 ) : error ? (
-<tr><td colSpan="9" className="text-center p-8 text-red-500">{error}</td></tr>
+<tr><td colSpan="10" className="text-center p-8 text-red-500">{error}</td></tr>
 ) : filteredDemandItems.length === 0 ? (
-<tr><td colSpan="9" className="text-center p-8 text-gray-500">موردی با این فیلترها یافت نشد.</td></tr>
+<tr><td colSpan="10" className="text-center p-8 text-gray-500">موردی با این فیلترها یافت نشد.</td></tr>
 ) : (
 filteredDemandItems.map(item => (
 <React.Fragment key={item.id}>
 <tr className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
 <td className="p-3 font-mono text-sm whitespace-nowrap">{toJalaaliDate(item.demand.createdat)}</td>
-<td className="p-3 font-semibold">{item.product.brand?.title} {item.product.title}</td>
+<td className="p-3 font-semibold">{getProductDisplayTitle(item.product)}</td>
+<td className="p-3 font-mono text-xs">{getTelegramCode(item.product)}</td>
 <td className="p-3 font-mono text-center">{item.quantity}</td>
 <td className="p-3">{item.demand.profiles.fullname}</td>
 <td className="p-3">{item.demand.location?.city?.title || '-'}</td>
@@ -510,11 +599,11 @@ filteredDemandItems.map(item => (
 <td className="p-3 font-mono text-xs">{item.productid}</td>
 <td className="p-3 font-mono text-xs">{item.demandid}</td>
 <td className="p-3">
-<button 
-onClick={() => handleOpenModal(item)} 
+<button
+onClick={() => handleOpenModal(item)}
 className={`font-bold py-1 px-3 rounded-lg text-sm transition duration-150 ease-in-out ${
-item.demandstatusid === 14 
-? 'bg-green-600 hover:bg-green-700 text-white' // ویرایش تخصیص (14) -> Green
+item.demandstatusid === 14
+? 'bg-green-600 hover:bg-green-700 text-white' // ویرایش تخصیص (14) -> Green
 : 'bg-amber-500 hover:bg-amber-600 text-gray-900' // تخصیص تامین‌کننده (12) -> Yellow/Amber
 }`}
 >
@@ -524,7 +613,7 @@ item.demandstatusid === 14 
 </tr>
 {(item.demand_admin_note || item.supply_admin_note) && (
 <tr className="bg-gray-50 dark:bg-gray-700/50">
-<td colSpan="9" className="px-4 py-2 text-xs text-gray-600 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
+<td colSpan="10" className="px-4 py-2 text-xs text-gray-600 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
 {item.demand_admin_note && <div><strong>یادداشت مدیر تقاضا:</strong> {item.demand_admin_note}</div>}
 {item.supply_admin_note && <div className="mt-1"><strong>یادداشت مدیر تامین:</strong> {item.supply_admin_note}</div>}
 </td>
@@ -553,7 +642,7 @@ filteredDemandItems.map(item => (
 <div className="flex justify-between items-start">
 {/* Product Title and Brand */}
 <h3 className="text-lg font-bold text-indigo-600 dark:text-indigo-400">
-{item.product.brand?.title} {item.product.title}
+{getProductDisplayTitle(item.product)}
 </h3>
 {/* Emergency Tag */}
 {item.demand.is_emergency && (
@@ -606,11 +695,11 @@ filteredDemandItems.map(item => (
 
 {/* Action Button */}
 <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-<button 
-onClick={() => handleOpenModal(item)} 
+<button
+onClick={() => handleOpenModal(item)}
 className={`w-full font-bold py-2 px-3 rounded-lg text-sm transition duration-150 ease-in-out shadow-md ${
-item.demandstatusid === 14 
-? 'bg-green-600 hover:bg-green-700 text-white' // ویرایش تخصیص (14) -> Green
+item.demandstatusid === 14
+? 'bg-green-600 hover:bg-green-700 text-white' // ویرایش تخصیص (14) -> Green
 : 'bg-amber-500 hover:bg-amber-600 text-gray-900' // تخصیص تامین‌کننده (12) -> Yellow/Amber
 }`}
 >
