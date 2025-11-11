@@ -116,7 +116,7 @@ return data || [];
 async fetchSuppliersForProduct(productId) {
 const { data, error } = await supabaseClient
 .from('supplierstock')
-.select('supplieruserid, unitprice, quantity, location:location_id (address, city(title)), profiles:supplieruserid (fullname, mobile)') // Modified
+.select('supplieruserid, unitprice, quantity, location_id, location:location_id (address, city(title)), profiles:supplieruserid (fullname, mobile)') // Modified: Added location_id
 .eq('productid', productId)
 .eq('is_available', true);
 if (error) throw error;
@@ -152,7 +152,7 @@ const priceToUse = !isNaN(updatedPrice) ? updatedPrice : supplier.unitprice;
 return {
 demand_item_id: demandItem.id,
 supplieruserid: supplierId,
-locationid: supplier.location_id,
+locationid: supplier.location_id, // This will now have the correct value
 assigned_quantity: quantity,
 assigned_price: priceToUse,
 };
