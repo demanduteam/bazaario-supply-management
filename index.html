@@ -116,7 +116,7 @@ return data || [];
 async fetchSuppliersForProduct(productId) {
 const { data, error } = await supabaseClient
 .from('supplierstock')
-.select('supplieruserid, unitprice, quantity, location_id, location:location_id (address, city(title)), profiles:supplieruserid (fullname, mobile)') // Modified: Added location_id
+.select('supplieruserid, unitprice, quantity, location_id, location:location_id (address, city(title)), profiles:supplieruserid (fullname, mobile)') // This select is correct and already fetches address
 .eq('productid', productId)
 .eq('is_available', true);
 if (error) throw error;
@@ -533,7 +533,12 @@ const stockKey = `${stock.supplieruserid}-${stock.location_id}`;
 return (
 <div key={stockKey} className="grid grid-cols-7 gap-4 items-center p-3 bg-gray-100 dark:bg-gray-700/50 rounded-lg"> {/* CHANGED key */}
 <div className="col-span-2">
-<p className="font-semibold">{stock.profiles.fullname} ({stock.location?.city?.title || 'بدون شهر'} - {stock.location_id})</p>
+<p className="font-semibold">
+  {stock.profiles.fullname} 
+  ({stock.location?.city?.title || 'بدون شهر'}
+  {stock.location?.address ? ` - ${stock.location.address}` : ''}
+  - کد {stock.location_id})
+</p>
 <p className="text-xs text-gray-500 dark:text-gray-400">قیمت اصلی: {formatCurrency(stock.unitprice)}</p>
 </div>
 <div className="text-sm text-center col-span-1">
