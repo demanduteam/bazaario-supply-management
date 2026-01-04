@@ -69,8 +69,8 @@ transition: opacity 0.3s ease-in-out;
 .modal-content {
 padding: 1.5rem;
 border-radius: 0.5rem;
-width: 90%;
-max-width: 800px;
+width: 95%;
+max-width: 1000px; /* Made modal slightly wider to accommodate bigger inputs */
 max-height: 90vh;
 overflow-y: auto;
 transform: scale(0.95);
@@ -114,9 +114,10 @@ return data || [];
 },
 
 async fetchSuppliersForProduct(productId) {
+// MODIFIED: Added lastupdatedat to the select query
 const { data, error } = await supabaseClient
 .from('supplierstock')
-.select('supplieruserid, unitprice, quantity, location_id, location:location_id (address, city(title)), profiles:supplieruserid (fullname, mobile)') // This select is correct and already fetches address
+.select('supplieruserid, unitprice, quantity, lastupdatedat, location_id, location:location_id (address, city(title)), profiles:supplieruserid (fullname, mobile)') 
 .eq('productid', productId)
 .eq('is_available', true);
 if (error) throw error;
@@ -132,7 +133,7 @@ if (error) throw error;
 return data || [];
 },
 
-async saveAssignments(demandItem, assignments, previousAssignments, suppliers, { totalQuantity, averagePrice }, notes) { // Added notes
+async saveAssignments(demandItem, assignments, previousAssignments, suppliers, { totalQuantity, averagePrice }, notes) { 
 // Step 1: Delete existing assignments for this item
 await supabaseClient
 .from('supplier_demand_assignment')
@@ -152,7 +153,7 @@ const priceToUse = !isNaN(updatedPrice) ? updatedPrice : supplier.unitprice;
 return {
 demand_item_id: demandItem.id,
 supplieruserid: supplier.supplieruserid,
-locationid: supplier.location_id, // This will now have the correct value
+locationid: supplier.location_id, 
 assigned_quantity: quantity,
 assigned_price: priceToUse,
 };
@@ -180,8 +181,8 @@ await supabaseClient.from('demand_item').update({
 approved_supply_quantity: totalQuantity,
 approved_supply_price: averagePrice,
 demandstatusid: 14, // 'تامین تایید شد'
-demand_admin_note: notes.demand_admin_note, // Added
-supply_admin_note: notes.supply_admin_note   // Added
+demand_admin_note: notes.demand_admin_note, 
+supply_admin_note: notes.supply_admin_note   
 }).eq('id', demandItem.id);
 } else {
 if (previousAssignments.length > 0) {
@@ -196,8 +197,8 @@ await supabaseClient.from('demand_item').update({
 approved_supply_quantity: null,
 approved_supply_price: null,
 demandstatusid: 12, // 'در انتظار تامین'
-demand_admin_note: notes.demand_admin_note, // Added
-supply_admin_note: notes.supply_admin_note   // Added
+demand_admin_note: notes.demand_admin_note, 
+supply_admin_note: notes.supply_admin_note   
 }).eq('id', demandItem.id);
 }
 }
@@ -213,17 +214,16 @@ return `${Number(value).toLocaleString('fa-IR')} تومان`;
 
 const formatPhoneNumberForWhatsApp = (phone) => {
     if (!phone) return null;
-    let cleaned = phone.replace(/[\s\-\(\)]/g, ''); // Remove spaces, dashes, parens
+    let cleaned = phone.replace(/[\s\-\(\)]/g, ''); 
     if (cleaned.startsWith('+')) {
-        cleaned = cleaned.substring(1); // Remove +
+        cleaned = cleaned.substring(1); 
     }
     if (cleaned.startsWith('00')) {
-        cleaned = cleaned.substring(2); // Remove 00
+        cleaned = cleaned.substring(2); 
     }
-    if (cleaned.startsWith('09')) { // Assuming Iranian numbers
-        cleaned = '98' + cleaned.substring(1); // Replace 0 with 98
+    if (cleaned.startsWith('09')) { 
+        cleaned = '98' + cleaned.substring(1); 
     }
-    // At this point, it should be like 989...
     return cleaned;
 };
 
@@ -257,12 +257,22 @@ const getProductDisplayTitle = (product) => {
     return `${telegramCode ? `[${telegramCode}] ` : ''}${brand ? brand + ' ' : ''}${title}`;
 };
 
-// NEW FUNCTION: Gets product title for messages, omits Telegram code
 const getProductDisplayTitleForMessage = (product) => {
     if (!product) return 'محصول حذف شده';
     const brand = product.brand?.title || '';
     const title = product.title || '';
     return `${brand ? brand + ' ' : ''}${title}`;
+};
+
+// ADDED: Helper to format number inputs with commas
+const formatPriceDisplay = (value) => {
+  if (value === null || value === undefined || value === '') return '';
+  // Convert to string to safely split
+  let [integer, decimal] = value.toString().split('.');
+  // Add commas to integer part
+  integer = integer.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  // Return combined result, preserving decimal point if it exists
+  return decimal !== undefined ? `${integer}.${decimal}` : integer;
 };
 
 const formatCountdown = (seconds) => {
@@ -287,7 +297,7 @@ return (
 };
 
 // ==================================================
-// Toast Notification System (ADDED)
+// Toast Notification System
 // ==================================================
 const ToastContext = React.createContext();
 
@@ -329,16 +339,16 @@ const ToastProvider = ({ children }) => {
 };
 const useToasts = () => React.useContext(ToastContext);
 // ==================================================
-// ICONS (ADDED CopyIcon)
+// ICONS
 // ==================================================
 const WhatsAppIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" className="w-4 h-4" fill="currentColor">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" className="w-5 h-5" fill="currentColor">
         <path d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 111L0 480l117.7-30.9c32.4 17.7 68.9 27.2 106.1 27.2h.1c122.3 0 221.9-99.6 221.9-222 0-59.3-25.2-115-67.1-157zm-157 341.6c-33.8 0-67.3-9.2-97.2-26.4l-6.9-4.1-72.3 19 19.3-70.5-4.5-7.1C55.4 352 47.9 313.1 47.9 272.9c0-97.2 79-176.2 176.1-176.2 47.3 0 91.4 18.4 124.7 51.7 33.3 33.3 51.7 77.4 51.7 124.7 0 97.2-79 176.2-176.2 176.2zM212.7 169.2c-2.3-3.6-8.5-6.1-11.7-6.1-3.1 0-6.8 1.6-9.9 4.1-3.1 2.6-10.4 8.7-10.4 21.1 0 12.3 10.7 24.5 12.1 26.2 1.4 1.7 20.9 32.2 50.8 44.8 29.9 12.6 29.9 8.4 35.3 7.9 5.4-.5 17.1-7.1 19.5-13.9 2.4-6.8 2.4-12.6 1.7-13.9-.7-1.3-2.4-2.1-5.1-3.6-2.7-1.5-17.1-8.4-19.8-9.4-2.7-.9-4.7-.9-6.7 1s-6.7 8.4-8.2 10.1c-1.5 1.7-3.1 1.9-5.8 1.3-2.7-.6-11.4-4.2-21.7-13.4-8-7.3-13.4-16.3-14.9-19.1-1.5-2.8-.2-4.4 1.2-5.8 1.3-1.3 2.7-3.1 4.1-4.7 1.3-1.7 1.7-2.8 2.6-4.7.9-1.9.4-3.6-.2-4.7z"/>
     </svg>
 );
 
 const CopyIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
         <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
     </svg>
 );
@@ -346,7 +356,7 @@ const CopyIcon = () => (
 // ==================================================
 // Assign Suppliers Modal Component
 // ==================================================
-const AssignSuppliersModal = ({ isOpen, onClose, onSave, demandItem, addToast }) => { // Added addToast
+const AssignSuppliersModal = ({ isOpen, onClose, onSave, demandItem, addToast }) => { 
 const [suppliers, setSuppliers] = React.useState([]);
 const [isLoading, setIsLoading] = React.useState(true);
 const [error, setError] = React.useState('');
@@ -419,12 +429,11 @@ const avgPrice = totalQty > 0 ? totalPriceXQty / totalQty : 0;
 return { totalQuantity: totalQty, averagePrice: avgPrice };
 }, [assignments, suppliers]);
 
-// Gets the message text for both WA and Copy
 const getInquiryMessage = (stock) => {
-    const productName = getProductDisplayTitleForMessage(demandItem.product); // Use new function
+    const productName = getProductDisplayTitleForMessage(demandItem.product); 
     const inquiryQuantity = demandItem.quantity;
     const locationString = (stock.location && stock.location.address) ? `+ ${stock.location.address}` : '';
-    const bazaarioCode = demandItem.productid; // Get Bazaario code
+    const bazaarioCode = demandItem.productid; 
 
     return `
 سلام جناب ${stock.profiles.fullname} ${locationString}
@@ -437,7 +446,7 @@ ${productName}
 
 خانم سبحانی فر
 شناسه تقاضا : ${demandItem.demandid}
-`.trim().replace(/\n\s*\n/g, '\n\n'); // Ensure blank rows
+`.trim().replace(/\n\s*\n/g, '\n\n'); 
 };
 
 
@@ -451,15 +460,12 @@ const handleWhatsAppClick = (stock) => {
     window.open(url, '_blank');
 };
 
-// MODIFIED: Handler for the copy button using document.execCommand
 const handleCopyClick = (stock) => {
     const message = getInquiryMessage(stock);
     try {
-        // Create a temporary textarea element
         const textArea = document.createElement("textarea");
         textArea.value = message;
         
-        // Hide the textarea from view
         textArea.style.position = "fixed";
         textArea.style.top = 0;
         textArea.style.left = 0;
@@ -469,7 +475,6 @@ const handleCopyClick = (stock) => {
         textArea.focus();
         textArea.select();
 
-        // Execute the copy command
         const successful = document.execCommand('copy');
         
         if (successful) {
@@ -477,8 +482,6 @@ const handleCopyClick = (stock) => {
         } else {
             throw new Error('Copy command was unsuccessful');
         }
-
-        // Clean up
         document.body.removeChild(textArea);
     } catch (err) {
         console.error('Failed to copy text: ', err);
@@ -493,7 +496,7 @@ try {
 const notes = { demand_admin_note: demandAdminNote, supply_admin_note: supplyAdminNote };
 const notesOnlySaved = totalQuantity === 0 && previousAssignments.length === 0 && notesChanged;
 await api.saveAssignments(demandItem, assignments, previousAssignments, suppliers, { totalQuantity, averagePrice }, notes);
-onSave(notesOnlySaved); // Pass boolean back
+onSave(notesOnlySaved); 
 } catch (err) {
 console.error("Error saving assignment:", err);
 setError(`خطا در ذخیره تخصیص: ${err.message}`);
@@ -508,7 +511,7 @@ setError('');
 try {
 const notes = { demand_admin_note: demandAdminNote, supply_admin_note: supplyAdminNote };
 await api.saveAssignments(demandItem, {}, previousAssignments, suppliers, { totalQuantity: 0, averagePrice: 0 }, notes);
-onSave(false); // Pass false, as this is a "clear" action
+onSave(false); 
 } catch (err) {
 console.error("Error clearing assignment:", err);
 setError(`خطا در حذف تخصیص: ${err.message}`);
@@ -527,55 +530,87 @@ return (
 {error && <p className="text-red-500">{error}</p>}
 {!isLoading && (
 <div className="space-y-6">
-<div className="space-y-3 max-h-80 overflow-y-auto pr-2">
+<div className="space-y-4 max-h-96 overflow-y-auto pr-2">
 {suppliers.length > 0 ? suppliers.map(stock => {
 const stockKey = `${stock.supplieruserid}-${stock.location_id}`;
+// MODIFIED: Changed layout from grid-cols-7 to grid-cols-12 for better spacing
 return (
-<div key={stockKey} className="grid grid-cols-7 gap-4 items-center p-3 bg-gray-100 dark:bg-gray-700/50 rounded-lg"> {/* CHANGED key */}
-<div className="col-span-2">
-<p className="font-semibold">
-  {stock.profiles.fullname} 
-  ({stock.location?.city?.title || 'بدون شهر'}
-  {stock.location?.address ? ` - ${stock.location.address}` : ''}
-  - کد {stock.location_id})
-</p>
-<p className="text-xs text-gray-500 dark:text-gray-400">قیمت اصلی: {formatCurrency(stock.unitprice)}</p>
-</div>
-<div className="text-sm text-center col-span-1">
-<label className="text-xs text-gray-500 dark:text-gray-400 block">قیمت جدید</label>
-<input type="number" min="0" placeholder={stock.unitprice} value={assignments[stockKey]?.updatedPrice ?? ''} onChange={e => handleAssignmentChange(stockKey, 'updatedPrice', e.target.value)} className="w-full bg-white dark:bg-gray-600 p-2 rounded-lg text-center" />
-</div>
-<p className="text-sm text-center col-span-1">موجودی: {stock.quantity || 'نامشخص'}</p>
-<input type="number" min="0" placeholder="تعداد" value={assignments[stockKey]?.quantity || ''} onChange={e => handleAssignmentChange(stockKey, 'quantity', e.target.value)} className="w-full bg-white dark:bg-gray-600 p-2 rounded-lg text-center col-span-1" />
+<div key={stockKey} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center p-4 bg-gray-100 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600"> 
+    
+    {/* COL 1: Info (Name, Loc, Original Price, Date) - Spans 4 cols */}
+    <div className="md:col-span-4">
+// ... inside AssignSuppliersModal component ...
+        <div className="flex flex-col gap-1 text-sm bg-gray-200 dark:bg-gray-600/50 p-2 rounded">
+            <div className="flex justify-between">
+                <span className="text-gray-600 dark:text-gray-400">قیمت اصلی:</span>
+                <span className="font-mono font-bold">{formatCurrency(stock.unitprice)}</span>
+            </div>
+            {/* ADDED: Date Display */}
+            <div className="flex justify-between">
+                <span className="text-gray-600 dark:text-gray-400">تاریخ بروزرسانی:</span>
+                <span className="font-mono text-xs">{toJalaaliDate(stock.lastupdatedat)}</span>
+            </div>
+            <div className="flex justify-between">
+                 <span className="text-gray-600 dark:text-gray-400">موجودی انبار:</span>
+                 <span className="font-mono font-bold">{stock.quantity || 'نامشخص'}</span>
+            </div>
+        </div>
+    </div>
 
-{/* ADDED Copy Button */}
-<div className="col-span-1 text-center">
-    <button
-        type="button"
-        onClick={() => handleCopyClick(stock)}
-        className="p-2 bg-gray-500 text-white rounded-full hover:bg-gray-600 transition"
-        title="کپی پیام برای گروه"
-    >
-        <CopyIcon />
-    </button>
-</div>
+    {/* COL 2: New Price Input - Spans 3 cols (Bigger Box) */}
+    <div className="md:col-span-3">
+        <label className="text-xs font-bold text-gray-500 dark:text-gray-400 block mb-1">قیمت جدید (تومان)</label>
+        <input 
+            type="text" 
+            inputMode="decimal"
+            placeholder={stock.unitprice ? formatPriceDisplay(stock.unitprice) : ''} 
+            value={formatPriceDisplay(assignments[stockKey]?.updatedPrice ?? '')} 
+            onChange={e => {
+                // Remove commas to get raw number string
+                const rawValue = e.target.value.replace(/,/g, '');
+                // Allow only valid numeric patterns (digits and optional single dot)
+                if (/^\d*\.?\d*$/.test(rawValue)) {
+                    handleAssignmentChange(stockKey, 'updatedPrice', rawValue);
+                }
+            }} 
+            className="w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-500 p-3 text-lg font-mono rounded-lg text-center focus:ring-2 focus:ring-indigo-500" 
+        />
+    </div>
 
-{/* MODIFIED WhatsApp Button (now col-span-1) */}
-<div className="col-span-1 text-center">
-    <button
-        type="button"
-        onClick={() => handleWhatsAppClick(stock)}
-        disabled={!stock.profiles.mobile}
-        className="p-2 bg-green-500 text-white rounded-full disabled:bg-gray-400 disabled:cursor-not-allowed hover:bg-green-600 transition"
-        title={
-            !stock.profiles.mobile 
-            ? "شماره موبایل برای این تامین‌کننده ثبت نشده" 
-            : "ارسال استعلام با واتس‌اپ"
-        }
-    >
-        <WhatsAppIcon />
-    </button>
-</div>
+    {/* COL 3: Quantity Input - Spans 3 cols (Bigger Box) */}
+    <div className="md:col-span-3">
+         <label className="text-xs font-bold text-gray-500 dark:text-gray-400 block mb-1">تعداد تخصیص</label>
+        <input 
+            type="number" 
+            min="0" 
+            placeholder="0" 
+            value={assignments[stockKey]?.quantity || ''} 
+            onChange={e => handleAssignmentChange(stockKey, 'quantity', e.target.value)} 
+            className="w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-500 p-3 text-lg font-mono rounded-lg text-center focus:ring-2 focus:ring-green-500" 
+        />
+    </div>
+
+    {/* COL 4: Buttons - Spans 2 cols */}
+    <div className="md:col-span-2 flex items-center justify-center gap-2 h-full pt-4">
+        <button
+            type="button"
+            onClick={() => handleCopyClick(stock)}
+            className="p-3 bg-gray-500 text-white rounded-full hover:bg-gray-600 transition shadow-sm"
+            title="کپی پیام برای گروه"
+        >
+            <CopyIcon />
+        </button>
+
+        <button
+            type="button"
+            onClick={() => handleWhatsAppClick(stock)}
+            disabled={!stock.profiles.mobile}
+            className="p-3 bg-green-500 text-white rounded-full disabled:bg-gray-400 disabled:cursor-not-allowed hover:bg-green-600 transition shadow-sm"
+            title={!stock.profiles.mobile ? "شماره موبایل ثبت نشده" : "ارسال با واتس‌اپ"}
+        >
+            <WhatsAppIcon />
+        </button>
+    </div>
 </div>
 )
 }) : <p className="text-center text-gray-500 py-4">هیچ تامین‌کننده فعالی برای این کالا یافت نشد.</p>}
@@ -624,16 +659,16 @@ className="bg-red-600 hover:bg-red-700 text-white py-2 px-5 rounded-lg font-semi
 <div className="flex items-center gap-4">
 <button onClick={onClose} className="bg-gray-200 dark:bg-gray-600 py-2 px-5 rounded-lg font-semibold">انصراف</button>
 <button
-  onClick={handleSave}
-  disabled={isSaveDisabled}
-  className={`py-2 px-5 rounded-lg font-semibold text-white transition duration-150
-    ${notesOnlySave
-      ? 'bg-purple-600 hover:bg-purple-700'
-      : 'bg-green-600 hover:bg-green-700'
-    }
-    disabled:bg-gray-400 disabled:cursor-not-allowed`}
+  onClick={handleSave}
+  disabled={isSaveDisabled}
+  className={`py-2 px-5 rounded-lg font-semibold text-white transition duration-150
+    ${notesOnlySave
+      ? 'bg-purple-600 hover:bg-purple-700'
+      : 'bg-green-600 hover:bg-green-700'
+    }
+    disabled:bg-gray-400 disabled:cursor-not-allowed`}
 >
-  {isLoading ? 'در حال ذخیره...' : (notesOnlySave ? 'ذخیره یادداشت' : 'ذخیره و تایید')}
+  {isLoading ? 'در حال ذخیره...' : (notesOnlySave ? 'ذخیره یادداشت' : 'ذخیره و تایید')}
 </button>
 </div>
 </div>
@@ -654,10 +689,9 @@ const [isModalOpen, setIsModalOpen] = React.useState(false);
 const [selectedItem, setSelectedItem] = React.useState(null);
 const [searchTerm, setSearchTerm] = React.useState('');
 const [showEmergencyOnly, setShowEmergencyOnly] = React.useState(false);
-// NEW: State for filtering non-assigned items (demandstatusid = 12)
 const [showNotAssignedOnly, setShowNotAssignedOnly] = React.useState(false);
-const [countdown, setCountdown] = React.useState(300); // 5 minutes in seconds
-const { addToast } = useToasts(); // ADDED: Get addToast function
+const [countdown, setCountdown] = React.useState(300); 
+const { addToast } = useToasts(); 
 
 const fetchData = async (isAutoRefresh = false) => {
 if (!isAutoRefresh) setIsLoading(true);
@@ -677,49 +711,47 @@ React.useEffect(() => {
 fetchData();
 }, []);
 
-// Effect for countdown timer and auto-refresh
 React.useEffect(() => {
     const timer = setInterval(() => {
         setCountdown(prevCountdown => {
             if (prevCountdown <= 1) {
                 console.log("Auto-refreshing data...");
-                fetchData(true); // Fetch data
-                return 300; // Reset countdown to 5 minutes
+                fetchData(true); 
+                return 300; 
             }
-            return prevCountdown - 1; // Decrement
+            return prevCountdown - 1; 
         });
-    }, 1000); // Every second
+    }, 1000); 
 
     return () => clearInterval(timer);
-}, []); // Empty dependency array ensures this effect runs only once
+}, []); 
 
 const handleOpenModal = (item) => { setSelectedItem(item); setIsModalOpen(true); };
 const handleCloseModal = () => { setSelectedItem(null); setIsModalOpen(false); };
 const handleSave = (notesOnlySaved = false) => { 
     handleCloseModal(); 
     fetchData(); 
-    if (notesOnlySaved) {
-      addToast("یادداشت با موفقیت ذخیره شد.", "success");
-    } else {
-      addToast("تخصیص با موفقیت ذخیره شد.", "success");
-    }
+    if (notesOnlySaved) {
+      addToast("یادداشت با موفقیت ذخیره شد.", "success");
+    } else {
+      addToast("تخصیص با موفقیت ذخیره شد.", "success");
+    }
 };
 
 const filteredDemandItems = React.useMemo(() => {
 return demandItems
 .filter(item => !showEmergencyOnly || item.demand.is_emergency)
-// NEW: Filter by status 12 ('در انتظار تامین')
 .filter(item => !showNotAssignedOnly || item.demandstatusid === 12)
 .filter(item => {
 if (!searchTerm) return true;
 const term = searchTerm.toLowerCase();
-const telegramCode = getTelegramCode(item.product); // Get telegram code
+const telegramCode = getTelegramCode(item.product); 
 return [
 item.demand.profiles.fullname,
 item.demand.location?.city?.title,
 item.product.title,
 item.product.brand?.title,
-telegramCode, // Add telegram code to search
+telegramCode, 
 item.demand_admin_note,
 item.supply_admin_note,
 toJalaaliDate(item.demand.createdat),
@@ -727,7 +759,7 @@ String(item.productid),
 String(item.demandid)
 ].some(field => field?.toLowerCase().includes(term));
 });
-}, [demandItems, searchTerm, showEmergencyOnly, showNotAssignedOnly]); // Added new state dependency
+}, [demandItems, searchTerm, showEmergencyOnly, showNotAssignedOnly]); 
 
 return (
 <div className="p-4 sm:p-6 lg:p-8 text-gray-900 dark:text-gray-100">
@@ -737,7 +769,6 @@ return (
         <span className="font-mono text-lg text-gray-700 dark:text-gray-300" dir="ltr" title="زمان تا به‌روزرسانی بعدی">
             {formatCountdown(countdown)}
         </span>
-        {/* Placeholder for theme toggle if needed in future */}
   </div>
 </header>
 <p className="mb-6 text-gray-600 dark:text-gray-400">در این بخش، برای آیتم‌های تقاضا که در وضعیت "در انتظار تامین" هستند، تامین‌کننده تخصیص دهید.</p>
@@ -754,15 +785,12 @@ return (
     className="w-full p-2 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg" 
 />
 </div>
-{/* Filter Checkboxes */}
 <div className="flex flex-wrap items-end gap-4 md:col-span-1">
-    {/* Emergency Filter */}
     <div className="flex items-center">
         <input type="checkbox" id="emergencyFilter" checked={showEmergencyOnly} onChange={e => setShowEmergencyOnly(e.target.checked)} className="ml-2 h-4 w-4 rounded" />
         <label htmlFor="emergencyFilter" className="text-sm font-medium">فقط فوری‌ها</label>
     </div>
     
-    {/* NEW Not Assigned Filter */}
     <div className="flex items-center">
         <input 
             type="checkbox" 
@@ -823,10 +851,10 @@ filteredDemandItems.map(item => (
 onClick={() => handleOpenModal(item)}
 className={`font-bold py-1 px-3 rounded-lg text-sm transition duration-150 ease-in-out ${
 item.demandstatusid === 14
-? 'bg-green-600 hover:bg-green-700 text-white' // Green: Assigned
+? 'bg-green-600 hover:bg-green-700 text-white' 
 : (item.supply_admin_note || item.demand_admin_note)
-  ? 'bg-purple-600 hover:bg-purple-700 text-white' // Purple: Notes added
-  : 'bg-amber-500 hover:bg-amber-600 text-gray-900' // Amber: Pending
+  ? 'bg-purple-600 hover:bg-purple-700 text-white' 
+  : 'bg-amber-500 hover:bg-amber-600 text-gray-900' 
 }`}
 >
 {item.demandstatusid === 14 ? 'ویرایش تخصیص' : ((item.supply_admin_note || item.demand_admin_note) ? 'بدون تامین‌کننده' : 'تخصیص تامین‌کننده')}
@@ -862,11 +890,9 @@ item.demandstatusid === 14
 filteredDemandItems.map(item => (
 <div key={item.id} className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-lg border-r-4 border-indigo-500/80 space-y-3">
 <div className="flex justify-between items-start">
-{/* Product Title and Brand */}
 <h3 className="text-lg font-bold text-indigo-600 dark:text-indigo-400">
 {getProductDisplayTitle(item.product)}
 </h3>
-{/* Emergency Tag */}
 {item.demand.is_emergency && (
 <span className="px-3 py-1 text-xs font-bold rounded-full bg-red-600 text-white shadow-md">
 فوری
@@ -874,7 +900,6 @@ filteredDemandItems.map(item => (
 )}
 </div>
 
-{/* Quantity and Status */}
 <div className="flex justify-between items-center border-b pb-3 border-gray-200 dark:border-gray-700">
 <div className="text-sm">
 <span className="text-gray-500 dark:text-gray-400">تعداد درخواستی:</span>
@@ -887,7 +912,6 @@ filteredDemandItems.map(item => (
 </div>
 </div>
 
-{/* Customer Details */}
 <div className="grid grid-cols-2 gap-2 text-sm">
 <p className="flex justify-between">
 <span className="text-gray-500 dark:text-gray-400">مشتری:</span>
@@ -907,7 +931,6 @@ filteredDemandItems.map(item => (
 </p>
 </div>
 
-{/* Notes */}
 {(item.demand_admin_note || item.supply_admin_note) && (
 <div className="pt-3 border-t border-dashed border-gray-300 dark:border-gray-700 text-xs space-y-1">
 {item.demand_admin_note && <div className="text-gray-600 dark:text-gray-400"><strong>یادداشت تقاضا:</strong> {item.demand_admin_note}</div>}
@@ -915,16 +938,15 @@ filteredDemandItems.map(item => (
 </div>
 )}
 
-{/* Action Button */}
 <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
 <button
 onClick={() => handleOpenModal(item)}
 className={`w-full font-bold py-2 px-3 rounded-lg text-sm transition duration-150 ease-in-out shadow-md ${
 item.demandstatusid === 14
-? 'bg-green-600 hover:bg-green-700 text-white' // Green: Assigned
+? 'bg-green-600 hover:bg-green-700 text-white' 
 : (item.supply_admin_note || item.demand_admin_note)
-  ? 'bg-purple-600 hover:bg-purple-700 text-white' // Purple: Notes added
-  : 'bg-amber-500 hover:bg-amber-600 text-gray-900' // Amber: Pending
+  ? 'bg-purple-600 hover:bg-purple-700 text-white' 
+  : 'bg-amber-500 hover:bg-amber-600 text-gray-900' 
 }`}
 >
 {item.demandstatusid === 14 ? 'ویرایش تخصیص' : ((item.supply_admin_note || item.demand_admin_note) ? 'بدون تامین‌کننده' : 'تخصیص تامین‌کننده')}
@@ -935,18 +957,16 @@ item.demandstatusid === 14
 )}
 </div>
 
-{/* MODIFIED: Pass addToast to modal */}
 {isModalOpen && <AssignSuppliersModal isOpen={isModalOpen} onClose={handleCloseModal} onSave={handleSave} demandItem={selectedItem} addToast={addToast} />}
 </div>
 );
 };
 
 // ==================================================
-// Main App Component to Render SupplyManagement
+// Main App Component
 // ==================================================
 const App = () => {
 return (
-// MODIFIED: Wrapped in ToastProvider
 <ToastProvider>
     <main className="min-h-screen bg-gray-100 dark:bg-gray-900">
         <SupplyManagement />
